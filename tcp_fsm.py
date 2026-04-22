@@ -24,13 +24,23 @@ class TCPFSM:
             ignore_invalid_triggers=False,
         )
 
-        # Initial skeleton: establish path only; close/data handling comes later.
+        # Open path
         self.machine.add_transition('PASSIVE', 'CLOSED', 'LISTEN', after='log_transition')
         self.machine.add_transition('ACTIVE', 'CLOSED', 'SYN_SENT', after='log_transition')
         self.machine.add_transition('SYN', 'LISTEN', 'SYN_RCVD', after='log_transition')
         self.machine.add_transition('SYN', 'SYN_SENT', 'SYN_RCVD', after='log_transition')
         self.machine.add_transition('SYNACK', 'SYN_SENT', 'ESTABLISHED', after='log_transition')
         self.machine.add_transition('ACK', 'SYN_RCVD', 'ESTABLISHED', after='log_transition')
+
+        # Core close path (still incomplete)
+        self.machine.add_transition('CLOSE', 'LISTEN', 'CLOSED', after='log_transition')
+        self.machine.add_transition('CLOSE', 'SYN_SENT', 'CLOSED', after='log_transition')
+        self.machine.add_transition('CLOSE', 'SYN_RCVD', 'FIN_WAIT_1', after='log_transition')
+        self.machine.add_transition('CLOSE', 'ESTABLISHED', 'FIN_WAIT_1', after='log_transition')
+        self.machine.add_transition('FIN', 'ESTABLISHED', 'CLOSE_WAIT', after='log_transition')
+        self.machine.add_transition('ACK', 'FIN_WAIT_1', 'FIN_WAIT_2', after='log_transition')
+        self.machine.add_transition('FIN', 'FIN_WAIT_1', 'CLOSING', after='log_transition')
+        self.machine.add_transition('CLOSE', 'CLOSE_WAIT', 'LAST_ACK', after='log_transition')
 
     def log_transition(self, event_data):
         print(f"Event {event_data.event.name} received, current State is {self.state}")
@@ -45,7 +55,7 @@ def main():
                 continue
             try:
                 tcp.trigger(token)
-            except MachineError as e:
+            except (MachineError, AttributeError) as e:
                 print(e)
 
 
